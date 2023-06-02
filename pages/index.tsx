@@ -1,10 +1,68 @@
+import { useState, useEffect } from 'react'
+
 import Head from 'next/head'
 import Image from 'next/image'
 import styles from '@/styles/Home.module.css'
-import { GradientBG } from '@/components/generator/GeneratorElement'
+//components
+import { FooterCon, GradientBG, FooterLink, Spang, GeneratorCon, GeneratorInnerCon, GeneratorTitle, GeneratorSub, GenerateButton, GenerateButtonText } from '@/components/generator/GeneratorElement'
 
+//assets
+import {API} from 'aws-amplify'
+import { quoteQueryName } from '@/src/graphql/queries'
+import { GraphQLResult } from '@aws-amplify/api-graphql'
+//create interface for dynamodb object
+interface UpdateQuoteInfoData {
+  id:string;
+  queryName:string;
+  quotesGenerated:number;
+  createdAt:string
+  updatedAt:string
+}
+
+//typed guard for our fetch function
+function isGraphQLResult(response: any): response is GraphQLResult<{
+  quoteQueryName: {
+    items: [UpdateQuoteInfoData];
+  }
+}> {
+  return response.data && response.data.QuoteQueryName && response.data.QuoteQueryName.items;
+}
 
 export default function Home() {
+
+  const [numberOfQuotes, setNumberOfQuotes] = useState<Number | null>(0)
+
+  //function to fetch our DynamoDB object (quotes generated)
+  const updateQuoteInfo = async () => {
+    try{
+      const response = await API.graphql<UpdateQuoteInfoData>({
+        query: quoteQueryName,
+        authMode: "AWS_IAM",
+        variables: {
+          queryName: "LIVE"
+        },
+      })
+      console.log(response)
+
+      if(!isGraphQLResult(response)){
+        throw new Error('Unexpected response from API.graphql')
+      }
+
+      if(!response.data){
+        throw new Error('response is undefined')
+      }
+
+      const recievedQuotesNumber = response.data.QuoteQueryName.items[0].quotesGenerated
+      setNumberOfQuotes(recievedQuotesNumber)
+    }catch(error){
+      console.log('error',error)
+    }
+  }
+
+  useEffect(() => {
+    updateQuoteInfo()
+  }, [])
+
   return (
     <>
       <Head>
@@ -14,7 +72,37 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
         <GradientBG>
+          {/**quote generator */}
+          {/* <GradientGeneratorModal/> */}
 
+          {/**quote generator */}
+          <GeneratorCon>
+            <GeneratorInnerCon>
+              <GeneratorTitle>
+
+              </GeneratorTitle>
+              <GeneratorSub>
+                Get Inspired with a quote from <FooterLink href="https://zenquotes.io/" target="_blank" rel="noopener">
+                  ZenQuotes
+                </FooterLink>
+              </GeneratorSub>
+              <GenerateButton>
+                <GenerateButtonText onClick={null}>
+                  Get a Quote
+                </GenerateButtonText>
+              </GenerateButton>
+            </GeneratorInnerCon>
+          </GeneratorCon>
+          {/*Footer*/}
+          <FooterCon>
+            <>
+              Quotes Generated: {numberOfQuotes}
+              <br />
+              Developed by <FooterLink href="https://www.uribevictor.com" target="_blank" rel="noopener noreferrer">
+                @VictorUribe
+              </FooterLink>
+            </>
+          </FooterCon>
         </GradientBG>
     </>
   )
